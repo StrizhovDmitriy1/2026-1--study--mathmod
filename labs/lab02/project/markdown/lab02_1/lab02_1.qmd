@@ -1,0 +1,128 @@
+## Инициализация проекта
+
+```{julia}
+using DrWatson
+@quickactivate "project"
+using DifferentialEquations
+using Plots
+default(fmt = :png)
+
+# Определение путей
+script_name = "lab02"
+mkpath(plotsdir(script_name))
+```
+
+## 1. Постановка задачи
+
+**Параметры**
+- $k = 17.7$ км — начальное расстояние.
+- $v$ — скорость лодки
+- $V = 3.8v$ — скорость катера ($n = 3.8$)
+
+**Уравнение движения:**
+Траектория катера описывается уравнением:
+$\frac{dr}{d\theta} = \frac{r}{\sqrt{n^2 - 1}}$
+
+Для нашего случая: $\sqrt{3.8^2 - 1} = \sqrt{14.44 - 1} = \sqrt{13.44}$
+$\frac{dr}{d\theta} = \frac{r}{\sqrt{13.44}}$
+
+**Начальные условия:**
+1. Случай 1 (катер и лодка по одну сторону от полюса) : $\theta_0 = 0, r_0 = \frac{17.7}{4.8}$
+2. Случай 2 (катер и лодка по разные стороны от полюса) : $\theta_0 = -\pi, r_0 = \frac{17.7}{2.8}$
+
+## Параметры модели
+
+```{julia}
+k = 17.7
+n = 3.8
+fi = 3*pi/4
+```
+
+Расстояние, после которого катер начнет двигаться по спирали:
+
+```{julia}
+r0_1 = k / (n+1) # Случай 1
+r0_2 = k / (n-1) # Случай 2
+```
+
+## Определение модели
+Дифференциальное уравнение траектории движения катера в полярных координатах:
+$dr/d\theta = r / \sqrt{n^2 - 1}$
+
+```{julia}
+function f(r, p, theta)
+	return r / sqrt(n^2 - 1)
+end
+```
+
+## 2. Решение задачи и построение траекторий
+### Случай 1
+Начальные условия: $\theta_0 = 0, r_0 = k/(n+1)$
+
+```{julia}
+tspan1 = (0.0, 2*pi)
+prob1 = ODEProblem(f, r0_1, tspan1)
+sol1 = solve(prob1, Tsit5(), saveat = 0.01)
+```
+
+### Случай 2
+Начальные условия: $\theta_0 = -\pi, r_0 = k/(n-1)$
+
+```{julia}
+tspan2 = (-pi, pi)
+prob2 = ODEProblem(f, r0_2, tspan2)
+sol2 = solve(prob2, Tsit5(), saveat = 0.01)
+```
+
+## 3. Визуализация и поиск точек пересечения
+
+Подготовка данных для траектории лодки (луч под углом fi):
+
+```{julia}
+t_boat = 0:1:800
+x_boat = t_boat
+y_boat = tan(fi) * t_boat
+
+r_boat = sqrt.(x_boat.^2 + y_boat.^2)
+theta_boat = atan.(y_boat, x_boat)
+```
+
+### Построение графиков
+График для первого случая:
+
+```{julia}
+p1 = plot(sol1.t, sol1.u, proj=:polar, lims=(0,20), title="Случай 1",  label="Катер", lw=2)
+plot!(p1, theta_boat, r_boat, label="Лодка", linestyle=:dash, color=:red)
+```
+
+График для второго случая:
+
+```{julia}
+p2 = plot(sol2.t, sol2.u, proj=:polar, lims=(0,20), title="Случай 2",  label="Катер", lw=2)
+plot!(p2, theta_boat, r_boat, label="Лодка", linestyle=:dash, color=:red)
+```
+
+Объединение графиков:
+
+```{julia}
+final_plot = plot(p1, p2, layout = (1, 2), size=(1000,500))
+```
+
+## Результаты анализа
+Точки пересечения
+
+```{julia}
+r_meet1 = sol1(fi)
+r_meet2 = sol2(fi)
+
+println("Точка пересечения 1 : r = ", round(r_meet1, digits=3), " км, θ = ", round(fi, digits=3))
+println("Точка пересечения 2 : r = ", round(r_meet2, digits=3), " км, θ = ", round(fi, digits=3))
+```
+
+## Сохранение результатов:
+
+```{julia}
+savefig(final_plot, plotsdir(script_name, "pursuit.png"))
+final_plot
+```
+
